@@ -1,0 +1,1388 @@
+#0. MCAR test, defining variables 
+#1. Moderated Mediation Model
+#2. Probing Moderated Mediation Model at high and low MCB
+#3. Gender differences in model fit of Moderated Mediation Model
+#4. Simple Mediation Model
+#5. Gender difference in model fit of Simple Mediation Model
+#6. Moderation: ADHD Model 
+#7. Probing Moderation: ADHD Model at high and low MCB
+#8. Gender differences in model fit of Moderation: ADHD Model
+#9. Total Effects Model
+#10. Gender differences in model fit of Total Effects Model
+#11. Moderation: IC Model
+#12. Probing Moderation: IC Model at high and low MCB
+#13. Gender differences in model fit of Moderation: IC Model at high and low MCB
+#14. Measurement Model for ADHD
+#15. Modified Measurement Model for ADHD
+#16. Gender differences in Modified Measurement Model for ADHD
+#17. Moderated Mediation Model with parent-report of ADHD only
+
+master$mHS <- factor(master$mHS, levels = c(0, 1), labels = c("college +", "highschool"))
+master$mGrad <- factor(master$mGrad, levels = c(0, 1), labels = c("college -", "gradschool"))
+master$mCauc <- factor(master$mCauc, levels = c(0, 1), labels = c("non-Caucasian", "Caucasian"))
+master$fCauc <- factor(master$fCauc, levels = c(0, 1), labels = c("non-Caucasian", "Caucasian"))
+
+master$cGender <- master$gender_ks2
+
+
+#________________________________Sensitivity analysis for Mediation____________
+
+master <- master %>%
+  filter(Count_valid_Mediation >= 2)
+
+
+#_________________________________MCAR Testing_________________________________
+
+master <- master[ which(master$ADHD_VALID==1), ] 
+                   
+#Little's MCAR
+
+
+master2 = master[,2:14]
+
+library(BaylorEdPsych)
+library(mvnmle)
+
+
+LittleMCAR(master2)
+
+#_________________________________Labeling Key Variables________________________________
+
+master$Parent9m = master$Parent
+master$Anger9m = master$fang_9moLABTABarmrestraint_NM_with_c 
+
+master$ODD = master$SNAP_ODDCDBPfactor_7yr
+master$EF = master$ADAR_NoGo_accuracy_11
+
+#master$ADHD = master$ADHDp
+
+master$cGender = master$gender_ks2
+
+
+#_________________________________Centering Key Variables_________________________________
+
+
+master$P9_CEN = master$Parent9m - mean(master$Parent9m, na.rm=TRUE)
+master$P9_HIGH = (master$P9_CEN - sd(master$P9_CEN, na.rm=TRUE))
+master$P9_LOW = (master$P9_CEN + sd(master$P9_CEN, na.rm=TRUE))
+
+
+#_________________________________Interaction Terms_______________________________________
+master$Ang_CEN = (master$Anger9m - mean(master$Anger9m, na.rm=TRUE))
+
+master$Ang_P = (master$Ang_CEN)*(master$P9_CEN)
+master$Ang_Plow = (master$Ang_CEN)*(master$P9_LOW)
+master$Ang_Phigh = (master$Ang_CEN)*(master$P9_HIGH)
+
+
+
+#_________________________________MODERATION MEDIATION MODEL_________________________________
+#_________________________________#1 Original Model__________________________________________
+Model20 <- '
+####A Path####
+EF ~ a1*Ang_CEN + a2*P9_CEN + a3*Ang_P
+
+####B Path####
+ADHD ~ b1*EF
+
+####C Path####
+ADHD ~ c1*Ang_CEN
+
+####Latent variable ADHD####
+ADHD =~ SNAP_inattADHD_7yr +  SNAPt_inattADHD_9yr + SNAP_hypADHD_7yr + SNAPt_hypADHD_9yr 
+SNAPt_inattADHD_9yr ~~ SNAPt_hypADHD_9yr
+
+####Demographic/psyc predictors of ADHD####
+ADHD ~ ODD + cGender + fCauc
+
+####Demographic/psyc predictors of EF####
+EF ~  cGender + fCauc
+
+####Demographic covariates####
+fCauc ~~ cGender
+fCauc ~~ mHS
+fCauc ~~ mGrad
+
+cGender ~~ mHS
+cGender ~~ mGrad
+
+mHS ~~ mGrad
+
+####Psychological covariates####
+ODD ~~ 0*fCauc
+ODD ~~ 0*mHS
+ODD ~~ 0*mGrad
+ODD ~~ cGender
+
+####Predictor covariates with demographic/psyc####
+P9_CEN ~~ fCauc
+P9_CEN ~~ mHS
+P9_CEN ~~ mGrad
+P9_CEN ~~ 0*cGender
+P9_CEN ~~ 0*ODD
+
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*cGender
+Ang_CEN ~~ 0*ODD
+
+Ang_P ~~ fCauc
+Ang_P ~~ mHS
+Ang_P ~~ mGrad
+Ang_P ~~ 0*cGender
+Ang_P ~~ 0*ODD
+
+####Predictors with predictors####
+P9_CEN ~~ Ang_CEN
+P9_CEN ~~ Ang_P
+
+Ang_CEN ~~ Ang_P
+
+####Indirect effects####
+
+a1b1 := a1*b1 
+a2b1 := a2*b1
+a3b1 := a3*b1
+
+
+'
+
+
+Model20run<-sem.auxiliary(Model20, data=master,fixed.x=FALSE, meanstructure = TRUE, missing = 'FIML', estimator = "MLR",
+                          aux = "mCauc")
+
+summary(Model20run, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+standardizedsolution(Model20run)
+
+fitMeasures(Model20run, fit.measures = "cfi")
+
+
+
+
+standardizedsolution(Model20run)
+
+unclass(vcov(Model20run))
+
+inspect(Model20run, what='fit')
+
+
+lavInspect(Model20run@external$baseline.model, "free")
+
+#_________________________________MODERATION MEDIATION MODEL_________________________________
+#_________________________________#2 Probing indirect effect: High MCB Quality______________
+Model20_High <- '
+####A Path####
+EF ~ a1*Ang_CEN + a2*P9_HIGH + a3*Ang_Phigh
+
+####B Path####
+ADHD ~ b1*EF
+
+####C Path####
+ADHD ~ c1*Ang_CEN
+
+####Latent variable ADHD####
+ADHD =~ SNAP_inattADHD_7yr +  SNAPt_inattADHD_9yr + SNAP_hypADHD_7yr + SNAPt_hypADHD_9yr 
+SNAPt_inattADHD_9yr ~~ SNAPt_hypADHD_9yr
+
+####Demographic/psyc predictors of ADHD####
+ADHD ~ ODD + cGender + fCauc
+
+####Demographic/psyc predictors of EF####
+EF ~  cGender + fCauc
+
+####Demographic covariates####
+fCauc ~~ cGender
+fCauc ~~ mHS
+fCauc ~~ mGrad
+
+cGender ~~ mHS
+cGender ~~ mGrad
+
+mHS ~~ mGrad
+
+####Psychological covariates####
+ODD ~~ 0*fCauc
+ODD ~~ 0*mHS
+ODD ~~ 0*mGrad
+ODD ~~ cGender
+
+####Predictor covariates with demographic/psyc####
+P9_HIGH ~~ fCauc
+P9_HIGH ~~ mHS
+P9_HIGH ~~ mGrad
+P9_HIGH ~~ 0*cGender
+P9_HIGH ~~ 0*ODD
+
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*cGender
+Ang_CEN ~~ 0*ODD
+
+Ang_Phigh ~~ fCauc
+Ang_Phigh ~~ mHS
+Ang_Phigh ~~ mGrad
+Ang_Phigh ~~ 0*cGender
+Ang_Phigh ~~ 0*ODD
+
+
+####Predictors with predictors####
+P9_HIGH ~~ Ang_CEN
+P9_HIGH ~~ Ang_Phigh
+
+Ang_CEN ~~ Ang_Phigh
+
+####Indirect effects####
+
+a1b1 := a1*b1 + a3*b1
+a2b1 := a2*b1
+a3b1 := a3*b1
+
+
+'
+
+
+Model20_Highrun<-sem.auxiliary(Model20_High, data=master,fixed.x=FALSE, meanstructure = TRUE, 
+                               missing = "FIML", estimator = "MLR", aux = "mCauc")
+
+summary(Model20_Highrun, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+standardizedsolution(Model20_Highrun)
+
+unclass(vcov(Model20_Highrun))
+
+#_________________________________MODERATION MEDIATION MODEL_______________________________
+#_________________________________#2 Probing indirect effect: Low MCB Quality______________
+Model20_Low <- '
+####A Path####
+EF ~ a1*Ang_CEN + a2*P9_LOW + a3*Ang_Plow
+
+####B Path####
+ADHD ~ b1*EF
+
+####C Path####
+ADHD ~ c1*Ang_CEN
+
+####Latent variable ADHD####
+ADHD =~ SNAP_inattADHD_7yr +  SNAPt_inattADHD_9yr + SNAP_hypADHD_7yr + SNAPt_hypADHD_9yr 
+SNAPt_inattADHD_9yr ~~ SNAPt_hypADHD_9yr
+
+####Demographic/psyc predictors of ADHD####
+ADHD ~ ODD + cGender + fCauc
+
+####Demographic/psyc predictors of EF####
+EF ~  cGender + fCauc
+
+####Demographic covariates####
+fCauc ~~ mHS
+fCauc ~~ mGrad
+fCauc ~~ cGender
+
+cGender ~~ mHS
+cGender ~~ mGrad
+
+mHS ~~ mGrad
+
+####Psychological covariates####
+ODD ~~ 0*fCauc
+ODD ~~ 0*mHS
+ODD ~~ 0*mGrad
+ODD ~~ cGender
+
+####Predictor covariates with demographic/psyc####
+P9_LOW ~~ fCauc
+P9_LOW ~~ mHS
+P9_LOW ~~ mGrad
+P9_LOW ~~ 0*cGender
+P9_LOW ~~ 0*ODD
+
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*cGender
+Ang_CEN ~~ 0*ODD
+
+Ang_Plow ~~ fCauc
+Ang_Plow ~~ mHS
+Ang_Plow ~~ mGrad
+Ang_Plow ~~ cGender
+Ang_Plow ~~ 0*ODD
+
+####Predictors with predictors####
+P9_LOW ~~ Ang_CEN
+P9_LOW ~~ Ang_Plow
+
+Ang_CEN ~~ Ang_Plow
+
+####Indirect effects####
+a1b1 := a1*b1 
+a2b1 := a2*b1
+a3b1 := a3*b1
+
+
+'
+
+
+Model20_Lowrun<-sem.auxiliary(Model20_Low, data=master,fixed.x=FALSE, meanstructure = TRUE, 
+                    missing = "FIML", estimator = "MLR", aux = "mCauc")
+
+summary(Model20_Lowrun, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+standardizedsolution(Model20_Lowrun)
+
+unclass(vcov(Model20_Lowrun))
+
+
+#_________________________________MODERATION MEDIATION MODEL_________________________________
+#_________________________________#3 Gender difference testing_______________________________
+Model20_gender <- '
+####A Path####
+EF ~ Ang_CEN + P9_CEN + Ang_P
+
+####B Path####
+ADHD ~ EF
+
+####C Path####
+ADHD ~ Ang_CEN
+
+####Latent variable ADHD####
+ADHD =~ SNAP_inattADHD_7yr +  SNAPt_inattADHD_9yr + SNAP_hypADHD_7yr + SNAPt_hypADHD_9yr 
+SNAPt_inattADHD_9yr ~~ c(x1, x1)*SNAPt_hypADHD_9yr
+
+####Demographic/psyc predictors of ADHD####
+ADHD ~ ODD + fCauc
+
+####Demographic/psyc predictors of EF####
+EF ~ fCauc
+
+####Demographic covariates####
+fCauc ~~ mHS
+fCauc ~~ mGrad
+
+mHS ~~ mGrad
+
+####Psychological covariates####
+ODD ~~ 0*fCauc
+ODD ~~ 0*mHS
+ODD ~~ 0*mGrad
+
+####Predictor covariates with demographic/psyc####
+P9_CEN ~~ fCauc
+P9_CEN ~~ mHS
+P9_CEN ~~ mGrad
+P9_CEN ~~ 0*ODD
+
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*ODD
+
+Ang_P ~~ fCauc
+Ang_P ~~ mHS
+Ang_P ~~ mGrad
+Ang_P ~~ 0*ODD
+
+####Predictors with predictors####
+P9_CEN ~~ Ang_CEN
+P9_CEN ~~ Ang_P
+
+Ang_CEN ~~ Ang_P
+
+
+'
+
+
+Model20_genderrun<-sem.auxiliary(Model20_gender, data=master,fixed.x=FALSE, meanstructure = TRUE, missing = "FIML", estimator = "MLR",
+                aux = "mCauc", group = "cGender", group.equal = c("loadings"))
+
+summary(Model20_genderrun, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+Model20a_genderrun<-sem.auxiliary(Model20_gender, data=master,fixed.x=FALSE,  meanstructure = TRUE, missing = "FIML", estimator = "MLR",
+                aux = "mCauc", group = "cGender", group.equal = c("loadings", "regressions"))
+
+summary(Model20a_genderrun, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+
+anova(Model20a_genderrun, Model20_genderrun)
+
+
+
+
+
+#_________________________________SIMPLE MEDIATION MODEL___________________________
+#________________________________#4 Original Model_________________________________
+Model23 <- '
+####A Path####
+EF ~ a1*Ang_CEN
+
+####B Path####
+ADHD ~ b1*EF
+
+####C Path####
+ADHD ~ c1*Ang_CEN
+
+####Latent variable ADHD####
+ADHD =~ SNAP_inattADHD_7yr + SNAP_hypADHD_7yr + SNAPt_inattADHD_9yr + SNAPt_hypADHD_9yr
+SNAPt_inattADHD_9yr ~~ SNAPt_hypADHD_9yr
+
+####Demographic/psyc predictors of ADHD####
+ADHD ~ fCauc + ODD + cGender 
+
+####Demographic/psyc predictors of EF####
+EF ~ fCauc + cGender 
+
+####Demographic covariates####
+fCauc ~~ cGender
+fCauc ~~ mHS
+fCauc ~~ mGrad
+
+cGender ~~ mHS
+cGender ~~ mGrad
+
+mHS ~~ mGrad
+
+####Psychological covariates####
+ODD ~~ 0*fCauc
+ODD ~~ 0*mHS
+ODD ~~ 0*mGrad
+ODD ~~ cGender
+
+####Predictor covariates with demographic/psyc####
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*cGender
+Ang_CEN ~~ 0*ODD
+
+####Indirect effects####
+
+a1b1 := a1*b1
+
+total := c1 + (a1*b1) 
+
+
+'
+
+
+Model23run<-sem.auxiliary(Model23, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                          meanstructure = TRUE, aux = "mCauc")
+
+summary(Model23run, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+standardizedsolution(Model23run)
+
+fitMeasures(Model23run, fit.measures = "cfi")
+
+unclass(vcov(Model23run))
+
+inspect(Model23run, what ='fit')
+
+
+#_________________________________SIMPLE MEDIATION MODEL_________________________________
+#_________________________________#5 Gender difference testing___________________________
+Model23_gender <- '
+####A Path####
+EF ~ Ang_CEN
+
+####B Path####
+ADHD ~ EF
+
+####C Path####
+ADHD ~ Ang_CEN
+
+####Latent variable ADHD####
+ADHD =~ SNAP_inattADHD_7yr + SNAP_hypADHD_7yr + SNAPt_inattADHD_9yr + SNAPt_hypADHD_9yr
+SNAPt_inattADHD_9yr ~~ c(x1, x1)*SNAPt_hypADHD_9yr
+
+####Demographic/psyc predictors of ADHD####
+ADHD ~ fCauc + ODD 
+
+####Demographic/psyc predictors of EF####
+EF ~ fCauc
+
+####Demographic covariates####
+fCauc ~~ mHS
+fCauc ~~ mGrad
+
+mHS ~~ mGrad
+
+####Psychological covariates####
+ODD ~~ 0*fCauc
+ODD ~~ 0*mHS
+ODD ~~ 0*mGrad
+
+####Predictor covariates with demographic/psyc####
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*ODD
+
+
+'
+
+
+Model23_genderrun<-sem.auxiliary(Model23_gender, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                                 meanstructure = TRUE, aux = "mCauc", group = "cGender", group.equal = c("loadings")) 
+
+
+Model23a_genderrun<-sem.auxiliary(Model23_gender, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                meanstructure = TRUE, aux = "mCauc", group = "cGender", group.equal = c("loadings", "regressions")) 
+
+summary(Model23_genderrun, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+anova(Model23_genderrun, Model23a_genderrun)
+
+
+#_________________________________MODERATION: ADHD_________________________________
+#_________________________________#6 Original Model_________________________________
+
+Model21 <- '
+ADHD ~ Ang_CEN + P9_CEN + Ang_P
+
+####Latent variable ADHD####
+ADHD =~ SNAP_inattADHD_7yr + SNAP_hypADHD_7yr + SNAPt_inattADHD_9yr + SNAPt_hypADHD_9yr
+SNAPt_inattADHD_9yr ~~ SNAPt_hypADHD_9yr
+
+####Demographic/psyc predictors of ADHD####
+ADHD ~ fCauc + ODD + cGender 
+
+####Demographic covariates####
+fCauc ~~ mHS
+fCauc ~~ mGrad
+fCauc ~~ cGender
+
+mHS ~~ mGrad
+mHS ~~ cGender
+
+mGrad ~~ cGender
+
+####Psychological covariates####
+ODD ~~ 0*fCauc
+ODD ~~ 0*mHS
+ODD ~~ 0*mGrad 
+ODD ~~ cGender
+
+####Predictor covariates with demographic/psyc####
+P9_CEN ~~ fCauc
+P9_CEN ~~ mHS
+P9_CEN ~~ mGrad
+P9_CEN ~~ 0*cGender
+P9_CEN ~~ 0*ODD
+
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*cGender
+Ang_CEN ~~ 0*ODD
+
+Ang_P ~~ fCauc
+Ang_P ~~ mHS
+Ang_P ~~ mGrad
+Ang_P ~~ 0*cGender
+Ang_P ~~ 0*ODD
+
+####Predictors with predictors####
+P9_CEN ~~ Ang_CEN
+P9_CEN ~~ Ang_P
+
+Ang_CEN ~~ Ang_P
+
+
+'
+
+
+Model21run<-sem.auxiliary(Model21, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                          meanstructure = TRUE, aux = "mCauc")
+
+summary(Model21run, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+fitMeasures(Model21run, fit.measures = "cfi")
+
+standardizedsolution(Model21run)
+
+inspect(Model21run, what='fit')
+
+
+
+
+#_________________________________MODERATION: ADHD_________________________________
+#_________________________________#7 Probing interaction: High MCB Quality____________
+Model21_High <- '
+ADHD ~ Ang_CEN + P9_HIGH + Ang_Phigh
+
+####Latent variable ADHD####
+ADHD =~ SNAP_inattADHD_7yr + SNAP_hypADHD_7yr + SNAPt_inattADHD_9yr + SNAPt_hypADHD_9yr
+SNAPt_inattADHD_9yr ~~ SNAPt_hypADHD_9yr
+
+####Demographic/psyc predictors of ADHD####
+ADHD ~ mCauc + fCauc + ODD + cGender 
+
+####Demographic covariates####
+mCauc ~~ fCauc
+mCauc ~~ mHS
+mCauc ~~ mGrad
+mCauc ~~ cGender
+
+fCauc ~~ mHS
+fCauc ~~ mGrad
+fCauc ~~ cGender
+
+mHS ~~ mGrad
+mHS ~~ cGender
+
+mGrad ~~ cGender
+
+####Psychological covariates####
+ODD ~~ 0*mCauc
+ODD ~~ 0*fCauc
+ODD ~~ 0*mHS
+ODD ~~ 0*mGrad 
+ODD ~~ cGender
+
+####Predictor covariates with demographic/psyc####
+P9_HIGH ~~ mCauc
+P9_HIGH ~~ fCauc
+P9_HIGH ~~ mHS
+P9_HIGH ~~ mGrad
+P9_HIGH ~~ 0*cGender
+P9_HIGH ~~ 0*ODD
+
+Ang_CEN ~~ mCauc
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*cGender
+Ang_CEN ~~ 0*ODD
+
+Ang_Phigh ~~ mCauc
+Ang_Phigh ~~ fCauc
+Ang_Phigh ~~ mHS
+Ang_Phigh ~~ mGrad
+Ang_Phigh ~~ 0*cGender
+Ang_Phigh ~~ 0*ODD
+
+####Predictors with predictors####
+P9_HIGH ~~ Ang_CEN
+P9_HIGH ~~ Ang_Phigh
+
+Ang_CEN ~~ Ang_Phigh
+
+
+'
+
+
+Model21_Highrun<-sem(Model21_High, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR")
+
+summary(Model21_Highrun, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+standardizedsolution(Model21_Highrun)
+
+
+#_________________________________MODERATION: ADHD_________________________________
+#_________________________________#7 Probing interaction: Low MCB Quality_____________
+
+Model21_Low <- '
+ADHD ~ Ang_CEN + P9_LOW + Ang_Plow
+
+####Latent variable ADHD####
+ADHD =~ SNAP_inattADHD_7yr + SNAP_hypADHD_7yr + SNAPt_inattADHD_9yr + SNAPt_hypADHD_9yr
+SNAPt_inattADHD_9yr ~~ SNAPt_hypADHD_9yr
+
+####Demographic/psyc predictors of ADHD####
+ADHD ~ mCauc + fCauc + ODD + cGender 
+
+####Demographic covariates####
+mCauc ~~ fCauc
+mCauc ~~ mHS
+mCauc ~~ mGrad
+mCauc ~~ cGender
+
+fCauc ~~ mHS
+fCauc ~~ mGrad
+fCauc ~~ cGender
+
+mHS ~~ mGrad
+mHS ~~ cGender
+
+mGrad ~~ cGender
+
+####Psychological covariates####
+ODD ~~ 0*mCauc
+ODD ~~ 0*fCauc
+ODD ~~ 0*mHS
+ODD ~~ 0*mGrad 
+ODD ~~ cGender
+
+####Predictor covariates with demographic/psyc####
+P9_LOW ~~ mCauc
+P9_LOW ~~ fCauc
+P9_LOW ~~ mHS
+P9_LOW ~~ mGrad
+P9_LOW ~~ 0*cGender
+P9_LOW ~~ 0*ODD
+
+Ang_CEN ~~ mCauc
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*cGender
+Ang_CEN ~~ 0*ODD
+
+Ang_Plow ~~ mCauc
+Ang_Plow ~~ fCauc
+Ang_Plow ~~ mHS
+Ang_Plow ~~ mGrad
+Ang_Plow ~~ 0*cGender
+Ang_Plow ~~ 0*ODD
+
+####Predictors with predictors####
+P9_LOW ~~ Ang_CEN
+P9_LOW ~~ Ang_Plow
+
+Ang_CEN ~~ Ang_Plow
+
+
+'
+
+
+Model21_Lowrun<-sem(Model21_Low, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR")
+
+summary(Model21_Lowrun, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+standardizedsolution(Model21_Lowrun)
+
+
+#_________________________________MODERATION: ADHD_________________________________
+#_________________________________#8 Gender differences_________________________________
+Model21_gender <- '
+ADHD ~ Ang_CEN + P9_CEN + Ang_P
+
+####Latent variable ADHD####
+ADHD =~ SNAP_inattADHD_7yr + SNAP_hypADHD_7yr + SNAPt_inattADHD_9yr + SNAPt_hypADHD_9yr
+SNAPt_inattADHD_9yr ~~ c(x1, x1)*SNAPt_hypADHD_9yr
+
+####Demographic/psyc predictors of ADHD####
+ADHD ~ fCauc + ODD 
+
+####Demographic covariates####
+fCauc ~~ mHS
+fCauc ~~ mGrad
+
+mHS ~~ mGrad
+
+####Psychological covariates####
+ODD ~~ 0*fCauc
+ODD ~~ 0*mHS
+ODD ~~ 0*mGrad 
+
+####Predictor covariates with demographic/psyc####
+P9_CEN ~~ fCauc
+P9_CEN ~~ mHS
+P9_CEN ~~ mGrad
+P9_CEN ~~ 0*ODD
+
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*ODD
+
+Ang_P ~~ fCauc
+Ang_P ~~ mHS
+Ang_P ~~ mGrad
+Ang_P ~~ 0*ODD
+
+####Predictors with predictors####
+P9_CEN ~~ Ang_CEN
+P9_CEN ~~ Ang_P
+
+Ang_CEN ~~ Ang_P
+
+
+'
+
+
+Model21_genderrun<-sem.auxiliary(Model21_gender, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                        meanstructure = TRUE, aux = 'mCauc', group = "cGender", group.equal = c("loadings")) 
+
+Model21a_genderrun<-sem.auxiliary(Model21_gender, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                        meanstructure = TRUE, aux = 'mCauc', group = "cGender", group.equal = c("loadings", "regressions")) 
+
+summary(Model21_genderrun, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+
+anova(Model21_genderrun, Model21a_genderrun)
+
+
+
+
+
+
+#_________________________________TOTAL EFFECTS MODEL_________________________________
+#_________________________________#9 Original Model_________________________________
+Model25 <- '
+ADHD ~ Ang_CEN
+
+####Latent variable ADHD####
+ADHD =~ SNAP_inattADHD_7yr + SNAP_hypADHD_7yr + SNAPt_inattADHD_9yr + SNAPt_hypADHD_9yr
+SNAPt_inattADHD_9yr ~~ SNAPt_hypADHD_9yr
+
+####Demographic/psyc predictors of ADHD####
+ADHD ~ ODD + fCauc + cGender
+
+####Demographic covariates####
+fCauc ~~ cGender
+
+####Psychological covariates####
+ODD ~~ 0*fCauc
+ODD ~~ cGender
+
+
+####Predictor covariates with demographic/psyc####
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*cGender
+Ang_CEN ~~ 0*ODD
+
+
+'
+
+
+Model25run<-sem.auxiliary(Model25, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                          meanstructure=TRUE, aux = 'mCauc')
+
+summary(Model25run, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+fitMeasures(Model25run, fit.measures = "cfi")
+
+standardizedsolution(Model25run)
+
+inspect(Model25run, what = 'fit')
+
+
+
+
+#_________________________________TOTAL EFFECTS MODEL_________________________________
+#_________________________________#10 Gender differences_________________________________
+Model25 <- '
+ADHD ~ Ang_CEN
+
+####Latent variable ADHD####
+ADHD =~ SNAP_inattADHD_7yr + SNAP_hypADHD_7yr + SNAPt_inattADHD_9yr + SNAPt_hypADHD_9yr
+SNAPt_inattADHD_9yr ~~ c(x1, x1)*SNAPt_hypADHD_9yr
+
+####Demographic/psyc predictors of ADHD####
+ADHD ~ ODD + fCauc 
+
+####Demographic covariates####
+
+####Psychological covariates####
+ODD ~~ 0*fCauc
+
+####Predictor covariates with demographic/psyc####
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*ODD
+
+
+'
+
+
+Model25run<-sem.auxiliary(Model25, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                meanstructure = TRUE, aux = 'mCauc', group = "cGender", group.equal = c("loadings")) 
+
+Model25arun<-sem.auxiliary(Model25, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                meanstructure= TRUE, aux = 'mCauc', group = "cGender", group.equal = c("loadings", "regressions")) 
+
+summary(Model25run, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+anova(Model25run, Model25arun)
+
+
+
+
+#_________________________________MODERATION: INHIBITORY CONTROL____________________
+#_________________________________#11 Original Model________________________________
+Model22 <- '
+EF ~ Ang_CEN + P9_CEN + Ang_P
+
+####Demographic/psyc predictors of EF####
+EF ~  fCauc + cGender 
+
+####Demographic covariates####
+fCauc ~~ mHS
+fCauc ~~ mGrad
+fCauc ~~ cGender
+
+mHS ~~ mGrad
+mHS ~~ cGender
+
+mGrad ~~ cGender
+
+####Predictor covariates with demographic/psyc####
+P9_CEN ~~ fCauc
+P9_CEN ~~ mHS
+P9_CEN ~~ mGrad
+P9_CEN ~~ 0*cGender
+
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*cGender
+
+Ang_P ~~ fCauc
+Ang_P ~~ mHS
+Ang_P ~~ mGrad
+Ang_P ~~ 0*cGender
+
+####Predictors with predictors####
+P9_CEN ~~ Ang_CEN
+P9_CEN ~~ Ang_P
+
+Ang_CEN ~~ Ang_P
+'
+
+
+Model22run<-sem.auxiliary(Model22, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                          meanstructure = TRUE, aux = 'mCauc')
+
+summary(Model22run, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+fitMeasures(Model22run, fit.measures = "cfi")
+
+standardizedsolution(Model22run)
+
+inspect(Model22run, what = 'fit')
+
+#_________________________________MODERATION: INHIBITORY CONTROL____________________
+#_________________________________#12 Probing interaction: High MCB_________________
+Model22_High <- '
+EF ~ Ang_CEN + P9_HIGH + Ang_Phigh
+
+####Demographic/psyc predictors of EF####
+EF ~  fCauc + cGender 
+
+####Demographic covariates####
+fCauc ~~ mHS
+fCauc ~~ mGrad
+fCauc ~~ cGender
+
+mHS ~~ mGrad
+mHS ~~ cGender
+
+mGrad ~~ cGender
+
+####Predictor covariates with demographic/psyc####
+P9_HIGH ~~ fCauc
+P9_HIGH ~~ mHS
+P9_HIGH ~~ mGrad
+P9_HIGH ~~ 0*cGender
+
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*cGender
+
+Ang_Phigh ~~ fCauc
+Ang_Phigh ~~ mHS
+Ang_Phigh ~~ mGrad
+Ang_Phigh ~~ 0*cGender
+
+####Predictors with predictors####
+P9_HIGH ~~ Ang_CEN
+P9_HIGH ~~ Ang_Phigh
+
+Ang_CEN ~~ Ang_Phigh
+'
+
+
+Model22_Highrun<-sem.auxiliary(Model22_High, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                               meanstructure =TRUE, aux = 'mCauc')
+
+summary(Model22_Highrun, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+standardizedsolution(Model22_Highrun)
+
+#_________________________________MODERATION: INHIBITORY CONTROL____________________
+#_________________________________#12 Probing interaction: Low MCB_________________
+
+Model22_Low <- '
+EF ~ Ang_CEN + P9_LOW + Ang_Plow
+
+####Demographic/psyc predictors of EF####
+EF ~  fCauc + cGender 
+
+####Demographic covariates####
+fCauc ~~ mHS
+fCauc ~~ mGrad
+fCauc ~~ cGender
+
+mHS ~~ mGrad
+mHS ~~ cGender
+
+mGrad ~~ cGender
+
+####Predictor covariates with demographic/psyc####
+P9_LOW ~~ fCauc
+P9_LOW ~~ mHS
+P9_LOW ~~ mGrad
+P9_LOW ~~ 0*cGender
+
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*cGender
+
+Ang_Plow ~~ fCauc
+Ang_Plow ~~ mHS
+Ang_Plow ~~ mGrad
+Ang_Plow ~~ 0*cGender
+
+####Predictors with predictors####
+P9_LOW ~~ Ang_CEN
+P9_LOW ~~ Ang_Plow
+
+Ang_CEN ~~ Ang_Plow
+'
+
+
+Model22_Lowrun<-sem.auxiliary(Model22_Low, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                              meanstructure = TRUE, aux = 'mCauc')
+
+summary(Model22_Lowrun, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+standardizedsolution(Model22_Lowrun)
+
+table(master$gender_ks)
+
+
+
+#_________________________________MODERATION: INHIBITORY CONTROL____________________
+#_________________________________#13 Gender differences____________________________
+Model22_gender <- '
+EF ~ Ang_CEN + P9_CEN + Ang_P
+
+####Demographic/psyc predictors of EF####
+EF ~  mCauc 
+
+####Demographic covariates####
+fCauc ~~ mHS
+fCauc ~~ mGrad
+
+mHS ~~ mGrad
+
+####Predictor covariates with demographic/psyc####
+P9_CEN ~~ fCauc
+P9_CEN ~~ mHS
+P9_CEN ~~ mGrad
+
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+
+Ang_P ~~ fCauc
+Ang_P ~~ mHS
+Ang_P ~~ mGrad
+
+####Predictors with predictors####
+P9_CEN ~~ Ang_CEN
+P9_CEN ~~ Ang_P
+
+Ang_CEN ~~ Ang_P
+'
+
+
+Model22_genderrun<-sem(Model22_gender, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+          group = "cGender", group.equal = c("loadings"))
+
+Model22a_genderrun<-sem(Model22_gender, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+          group = "cGender", group.equal = c("loadings", "regressions"))
+
+summary(Model22_genderrun, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+anova(Model22_genderrun, Model22a_genderrun)
+
+
+
+#_________________________________MEASUREMENT MODEL FOR ADHD__________________________
+#_________________________________#14 Original Model_________________________________
+
+Model1 <- '
+ADHD =~ SNAP_inattADHD_7yr + SNAP_hypADHD_7yr + SNAPt_inattADHD_9yr + SNAPt_hypADHD_9yr 
+
+'
+
+Model1run<-cfa(Model1, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR")
+
+summary(Model1run, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+modificationindices(Model1run)
+
+#_________________________________MEASUREMENT MODEL FOR ADHD_________________________
+#_________________________________#15 Modified Model_________________________________
+
+
+Model2 <- '
+ADHD =~ SNAP_inattADHD_7yr + SNAP_hypADHD_7yr + SNAPt_inattADHD_9yr + SNAPt_hypADHD_9yr 
+
+SNAPt_inattADHD_9yr ~~ SNAPt_hypADHD_9yr 
+
+'
+
+
+Model2run<-cfa(Model2, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR")
+
+summary(Model2run, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+
+#_________________________________MEASUREMENT MODEL FOR ADHD__________________________
+#_________________________________#16 Gender differences______________________________
+
+
+Model3 <- '
+ADHD =~ SNAP_inattADHD_7yr + SNAP_hypADHD_7yr + SNAPt_inattADHD_9yr + SNAPt_hypADHD_9yr 
+
+SNAPt_inattADHD_9yr ~~ SNAPt_hypADHD_9yr 
+
+
+'
+
+Model3run<-cfa(Model3, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+               group = "cGender")  
+
+Model3arun<-cfa(Model3, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+               group = "cGender", group.equal = c("loadings"))
+
+anova(Model3run, Model3arun)
+
+#_________________________________MODERATION MEDIATION MODEL: ADHD parent-report only________
+#_________________________________#17 Original Model__________________________________________
+#Define ADHD
+
+master$ADHD <- (master$SNAP_hypADHD_7yr + master$SNAP_inattADHD_7yr)/2
+
+Model20_ADHD <- '
+####A Path####
+EF ~ a1*Ang_CEN + a2*P9_CEN + a3*Ang_P
+
+####B Path####
+ADHD ~ b1*EF
+
+####C Path####
+ADHD ~ c1*Ang_CEN
+
+####Demographic/psyc predictors of ADHD####
+ADHD ~ ODD + fCauc + cGender 
+
+####Demographic/psyc predictors of EF####
+EF ~  fCauc + cGender
+
+####Demographic covariates####
+fCauc ~~ cGender
+fCauc ~~ mHS
+fCauc ~~ mGrad
+
+cGender ~~ mHS
+cGender ~~ mGrad
+
+mHS ~~ mGrad
+
+####Psychological covariates####
+ODD ~~ 0*fCauc
+ODD ~~ 0*mHS
+ODD ~~ 0*mGrad
+ODD ~~ cGender
+
+####Predictor covariates with demographic/psyc####
+P9_CEN ~~ fCauc
+P9_CEN ~~ mHS
+P9_CEN ~~ mGrad
+P9_CEN ~~ 0*cGender
+P9_CEN ~~ 0*ODD
+
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*cGender
+Ang_CEN ~~ 0*ODD
+
+Ang_P ~~ fCauc
+Ang_P ~~ mHS
+Ang_P ~~ mGrad
+Ang_P ~~ 0*cGender
+Ang_P ~~ 0*ODD
+
+####Predictors with predictors####
+P9_CEN ~~ Ang_CEN
+P9_CEN ~~ Ang_P
+
+Ang_CEN ~~ Ang_P
+
+####Indirect effects####
+
+a1b1 := a1*b1
+a2b1 := a2*b1
+a3b1 := a3*b1
+
+
+'
+
+
+Model20_ADHDrun<-sem.auxiliary(Model20_ADHD, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                               meanstructure = TRUE, aux = 'mCauc')
+
+summary(Model20_ADHDrun, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+standardizedsolution(Model20run)
+
+unclass(vcov(Model20_ADHDrun))
+
+summary(master$VALID_count  )
+
+#_________________________________MODERATION MEDIATION MODEL: ADHD parent-report only________
+#_________________________________#18 Probing indirect effect: High MCB______________________
+Model20_ADHDhigh <- '
+####A Path####
+EF ~ a1*Ang_CEN + a2*P9_HIGH + a3*Ang_Phigh
+
+####B Path####
+ADHD ~ b1*EF
+
+####C Path####
+ADHD ~ c1*Ang_CEN
+
+####Demographic/psyc predictors of ADHD####
+ADHD ~ ODD + fCauc + cGender 
+
+####Demographic/psyc predictors of EF####
+EF ~ fCauc + cGender
+
+####Demographic covariates####
+fCauc ~~ cGender
+fCauc ~~ mHS
+fCauc ~~ mGrad
+
+cGender ~~ mHS
+cGender ~~ mGrad
+
+mHS ~~ mGrad
+
+####Psychological covariates####
+ODD ~~ 0*fCauc
+ODD ~~ 0*mHS
+ODD ~~ 0*mGrad
+ODD ~~ cGender
+
+####Predictor covariates with demographic/psyc####
+P9_HIGH ~~ fCauc
+P9_HIGH  ~~ mHS
+P9_HIGH ~~ mGrad
+P9_HIGH ~~ 0*cGender
+P9_HIGH ~~ 0*ODD
+
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*cGender
+Ang_CEN ~~ 0*ODD
+
+Ang_Phigh ~~ fCauc
+Ang_Phigh ~~ mHS
+Ang_Phigh ~~ mGrad
+Ang_Phigh ~~ 0*cGender
+Ang_Phigh ~~ 0*ODD
+
+####Predictors with predictors####
+P9_HIGH ~~ Ang_CEN
+P9_HIGH ~~ Ang_Phigh
+
+Ang_CEN ~~ Ang_Phigh
+
+####Indirect effects####
+
+a1b1 := a1*b1
+a2b1 := a2*b1
+a3b1 := a3*b1
+
+
+'
+
+
+Model20_ADHDhighrun<-sem.auxiliary(Model20_ADHDhigh, data=master,fixed.x=FALSE, missing = "FIML", 
+                                   estimator = "MLR", meanstructure = TRUE, aux = 'mCauc')
+
+summary(Model20_ADHDhighrun, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+standardizedsolution(Model20_ADHDhighrun)
+
+unclass(vcov(Model20_ADHDhighrun))
+
+#_________________________________MODERATION MEDIATION MODEL: ADHD parent-report only________
+#_________________________________#19 Probing indirect effect: Low MCB______________________
+Model20_ADHDlow <- '
+####A Path####
+EF ~ a1*Ang_CEN + a2*P9_LOW + a3*Ang_Plow
+
+####B Path####
+ADHD ~ b1*EF
+
+####C Path####
+ADHD ~ c1*Ang_CEN
+
+####Demographic/psyc predictors of ADHD####
+ADHD ~ ODD + fCauc + cGender 
+
+####Demographic/psyc predictors of EF####
+EF ~fCauc + cGender
+
+####Demographic covariates####
+fCauc ~~ cGender
+fCauc ~~ mHS
+fCauc ~~ mGrad
+
+cGender ~~ mHS
+cGender ~~ mGrad
+
+mHS ~~ mGrad
+
+####Psychological covariates####
+ODD ~~ 0*fCauc
+ODD ~~ 0*mHS
+ODD ~~ 0*mGrad
+ODD ~~ cGender
+
+####Predictor covariates with demographic/psyc####
+P9_LOW ~~ fCauc
+P9_LOW  ~~ mHS
+P9_LOW ~~ mGrad
+P9_LOW ~~ 0*cGender
+P9_LOW ~~ 0*ODD
+
+Ang_CEN ~~ fCauc
+Ang_CEN ~~ 0*mHS
+Ang_CEN ~~ 0*mGrad
+Ang_CEN ~~ 0*cGender
+Ang_CEN ~~ 0*ODD
+
+Ang_Plow ~~ fCauc
+Ang_Plow ~~ mHS
+Ang_Plow ~~ mGrad
+Ang_Plow ~~ 0*cGender
+Ang_Plow ~~ 0*ODD
+
+####Predictors with predictors####
+P9_LOW ~~ Ang_CEN
+P9_LOW ~~ Ang_Plow
+
+Ang_CEN ~~ Ang_Plow
+
+####Indirect effects####
+
+a1b1 := a1*b1
+a2b1 := a2*b1
+a3b1 := a3*b1
+
+
+'
+
+
+Model20_ADHDlowrun<-sem.auxiliary(Model20_ADHDlow, data=master,fixed.x=FALSE, missing = "FIML", 
+                                  meanstructure = TRUE, aux = 'mCauc', estimator = "MLR")
+
+summary(Model20_ADHDlowrun, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+standardizedsolution(Model20_ADHDlowrun)
+
+unclass(vcov(Model20_ADHDlowrun))
