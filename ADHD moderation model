@@ -1,0 +1,333 @@
+
+master$Ppro = master$pospro_4mos_NM - mean(master$pospro_4mos_NM,na.rm=TRUE)
+master$Npro = master$negpro_4mos_NM - mean(master$negpro_4mos_NM,na.rm=TRUE)
+master$Mpro = master$motpro_4mos_NM - mean(master$motpro_4mos_NM,na.rm=TRUE)
+
+#These reactivity variables reflect changes to 6217 motor and negative affect
+
+master$Npro_Parentmean <- (master$Npro)*(master$Parent)
+master$Ppro_Parentmean <- (master$Ppro)*(master$Parent)
+master$Mpro_Parentmean <- (master$Mpro)*(master$Parent)
+
+sd(master$Parent,na.rm=TRUE)
+
+master$Parentlow <- master$Parent + 1.794
+master$Parenthigh <- master$Parent - 1.794
+
+master$Ppro_Parentlow <- (master$Ppro)*(master$Parentlow)
+master$Ppro_Parenthigh <- (master$Ppro)*(master$Parenthigh)
+
+master$Mpro_Parentlow <- (master$Mpro)*(master$Parentlow)
+master$Mpro_Parenthigh <- (master$Mpro)*(master$Parenthigh)
+
+master$Npro_Parentlow <- (master$Npro)*(master$Parentlow)
+master$Npro_Parenthigh <- (master$Npro)*(master$Parenthigh)
+
+
+
+##MAIN ANALYTIC MODEL###
+
+
+##1. Original Model with Gender as grouping variable
+Model1 <- '
+ADHD ~ Npro + Mpro + Ppro + Parent + Npro_Parentmean + Mpro_Parentmean + Ppro_Parentmean + SNAP_ODDCDBPfactor_7yr 
+
+ADHD =~ SNAP_inattADHD_7yr + SNAP_hypADHD_7yr + SNAPt_inattADHD_9yr + SNAPt_hypADHD_9yr
+
+Npro ~~ Mpro
+Npro ~~ Ppro
+Npro ~~ Parent
+Npro ~~ Npro_Parentmean
+Npro ~~ Ppro_Parentmean
+Npro ~~ Mpro_Parentmean
+Npro ~~ SNAP_ODDCDBPfactor_7yr
+
+Mpro ~~ Ppro
+Mpro ~~ Parent
+Mpro ~~ Npro_Parentmean
+Mpro ~~ Ppro_Parentmean
+Mpro ~~ Mpro_Parentmean
+Mpro ~~ SNAP_ODDCDBPfactor_7yr
+
+Ppro ~~ Parent
+Ppro ~~ Npro_Parentmean
+Ppro ~~ Ppro_Parentmean
+Ppro ~~ Mpro_Parentmean
+Ppro ~~ SNAP_ODDCDBPfactor_7yr
+
+Parent ~~ Npro_Parentmean
+Parent ~~ Ppro_Parentmean
+Parent ~~ Mpro_Parentmean
+Parent ~~ SNAP_ODDCDBPfactor_7yr
+
+Npro_Parentmean ~~ Ppro_Parentmean
+Npro_Parentmean ~~ Mpro_Parentmean
+Npro_Parentmean ~~ SNAP_ODDCDBPfactor_7yr
+
+Ppro_Parentmean ~~ Mpro_Parentmean
+Ppro_Parentmean ~~ SNAP_ODDCDBPfactor_7yr
+
+Mpro_Parentmean ~~ SNAP_ODDCDBPfactor_7yr
+
+mCauc ~~ 0*Npro
+mCauc ~~ 0*Ppro
+mCauc ~~ 0*Mpro
+mCauc ~~ Parent
+mCauc ~~ Npro_Parentmean
+mCauc ~~ Ppro_Parentmean
+mCauc ~~ Mpro_Parentmean
+mCauc ~~ 0*SNAP_ODDCDBPfactor_7yr
+
+fCauc ~~ 0*Npro
+fCauc ~~ 0*Ppro
+fCauc ~~ 0*Mpro
+fCauc ~~ Parent
+fCauc ~~ Npro_Parentmean
+fCauc ~~ Ppro_Parentmean
+fCauc ~~ Mpro_Parentmean
+fCauc ~~ 0*SNAP_ODDCDBPfactor_7yr
+
+mHS ~~ 0*Npro
+mHS ~~ 0*Ppro
+mHS ~~ 0*Mpro
+mHS ~~ Parent
+mHS ~~ Npro_Parentmean
+mHS ~~ Ppro_Parentmean
+mHS ~~ Mpro_Parentmean
+mHS ~~ 0*SNAP_ODDCDBPfactor_7yr
+
+mGrad ~~ 0*Npro
+mGrad ~~ 0*Ppro
+mGrad ~~ 0*Mpro
+mGrad ~~ Parent
+mGrad ~~ Npro_Parentmean
+mGrad ~~ Ppro_Parentmean
+mGrad ~~ Mpro_Parentmean
+mGrad ~~ 0*SNAP_ODDCDBPfactor_7yr
+
+mHS ~~ mGrad
+mHS ~~ mCauc
+mHS ~~ fCauc
+
+mGrad ~~ mCauc
+mGrad ~~ fCauc
+
+mCauc ~~ fCauc
+
+ADHD ~ fCauc + mCauc
+
+SNAPt_hypADHD_9yr ~~ SNAPt_inattADHD_9yr
+
+'
+
+
+Model1run<-sem(Model1, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                  group = "gender_ks", group.equal = c("loadings")) 
+
+#Testing gender differences by constraining regression to be equal
+Model1arun<-sem(Model1, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+               group = "gender_ks", group.equal = c("loadings", "regressions")) 
+
+anova(Model1run, Model1arun)
+
+
+summary(Model1run, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+
+##2. Simple slope testing for two-way interaction effects: Low MCB
+Model2 <- '
+ADHD ~ Npro + Mpro + Ppro + Parentlow + Npro_Parentlow + Mpro_Parentlow + Ppro_Parentlow + SNAP_ODDCDBPfactor_7yr 
+
+ADHD =~ SNAP_inattADHD_7yr + SNAP_hypADHD_7yr + SNAPt_inattADHD_9yr + SNAPt_hypADHD_9yr
+
+Npro ~~ Mpro
+Npro ~~ Ppro
+Npro ~~ Parentlow
+Npro ~~ Npro_Parentlow
+Npro ~~ Ppro_Parentlow
+Npro ~~ Mpro_Parentlow
+Npro ~~ SNAP_ODDCDBPfactor_7yr
+
+Mpro ~~ Ppro
+Mpro ~~ Parentlow
+Mpro ~~ Npro_Parentlow
+Mpro ~~ Ppro_Parentlow
+Mpro ~~ Mpro_Parentlow
+Mpro ~~ SNAP_ODDCDBPfactor_7yr
+
+Ppro ~~ Parentlow
+Ppro ~~ Npro_Parentlow
+Ppro ~~ Ppro_Parentlow
+Ppro ~~ Mpro_Parentlow
+Ppro ~~ SNAP_ODDCDBPfactor_7yr
+
+Parentlow ~~ Npro_Parentlow
+Parentlow ~~ Ppro_Parentlow
+Parentlow ~~ Mpro_Parentlow
+Parentlow ~~ SNAP_ODDCDBPfactor_7yr
+
+Npro_Parentlow ~~ Ppro_Parentlow
+Npro_Parentlow ~~ Mpro_Parentlow
+Npro_Parentlow ~~ SNAP_ODDCDBPfactor_7yr
+
+Ppro_Parentlow ~~ Mpro_Parentlow
+Ppro_Parentlow ~~ SNAP_ODDCDBPfactor_7yr
+
+Mpro_Parentlow ~~ SNAP_ODDCDBPfactor_7yr
+
+mCauc ~~ 0*Npro
+mCauc ~~ 0*Ppro
+mCauc ~~ 0*Mpro
+mCauc ~~ Parentlow
+mCauc ~~ Npro_Parentlow
+mCauc ~~ Ppro_Parentlow
+mCauc ~~ Mpro_Parentlow
+mCauc ~~ 0*SNAP_ODDCDBPfactor_7yr
+
+fCauc ~~ 0*Npro
+fCauc ~~ 0*Ppro
+fCauc ~~ 0*Mpro
+fCauc ~~ Parentlow
+fCauc ~~ Npro_Parentlow
+fCauc ~~ Ppro_Parentlow
+fCauc ~~ Mpro_Parentlow
+fCauc ~~ 0*SNAP_ODDCDBPfactor_7yr
+
+mHS ~~ 0*Npro
+mHS ~~ 0*Ppro
+mHS ~~ 0*Mpro
+mHS ~~ Parentlow
+mHS ~~ Npro_Parentlow
+mHS ~~ Ppro_Parentlow
+mHS ~~ Mpro_Parentlow
+mHS ~~ 0*SNAP_ODDCDBPfactor_7yr
+
+mGrad ~~ 0*Npro
+mGrad ~~ 0*Ppro
+mGrad ~~ 0*Mpro
+mGrad ~~ Parentlow
+mGrad ~~ Npro_Parentlow
+mGrad ~~ Ppro_Parentlow
+mGrad ~~ Mpro_Parentlow
+mGrad ~~ 0*SNAP_ODDCDBPfactor_7yr
+
+mHS ~~ mGrad
+mHS ~~ mCauc
+mHS ~~ fCauc
+
+mGrad ~~ mCauc
+mGrad ~~ fCauc
+
+mCauc ~~ fCauc
+
+ADHD ~ fCauc + mCauc
+
+SNAPt_hypADHD_9yr ~~ SNAPt_inattADHD_9yr
+
+'
+
+
+Model2run<-sem(Model2, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                  group = "gender_ks", group.equal = c("loadings")) 
+
+summary(Model2run, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
+
+##3. Simple slope testing for two-way interaction effects: High MCB
+Model3 <- '
+ADHD ~ Npro + Mpro + Ppro + Parenthigh + Npro_Parenthigh + Mpro_Parenthigh + Ppro_Parenthigh + SNAP_ODDCDBPfactor_7yr 
+
+ADHD =~ SNAP_inattADHD_7yr + SNAP_hypADHD_7yr + SNAPt_inattADHD_9yr + SNAPt_hypADHD_9yr
+
+Npro ~~ Mpro
+Npro ~~ Ppro
+Npro ~~ Parenthigh
+Npro ~~ Npro_Parenthigh
+Npro ~~ Ppro_Parenthigh
+Npro ~~ Mpro_Parenthigh
+Npro ~~ SNAP_ODDCDBPfactor_7yr
+
+Mpro ~~ Ppro
+Mpro ~~ Parenthigh
+Mpro ~~ Npro_Parenthigh
+Mpro ~~ Ppro_Parenthigh
+Mpro ~~ Mpro_Parenthigh
+Mpro ~~ SNAP_ODDCDBPfactor_7yr
+
+Ppro ~~ Parenthigh
+Ppro ~~ Npro_Parenthigh
+Ppro ~~ Ppro_Parenthigh
+Ppro ~~ Mpro_Parenthigh
+Ppro ~~ SNAP_ODDCDBPfactor_7yr
+
+Parenthigh ~~ Npro_Parenthigh
+Parenthigh ~~ Ppro_Parenthigh
+Parenthigh ~~ Mpro_Parenthigh
+Parenthigh ~~ SNAP_ODDCDBPfactor_7yr
+
+Npro_Parenthigh ~~ Ppro_Parenthigh
+Npro_Parenthigh ~~ Mpro_Parenthigh
+Npro_Parenthigh ~~ SNAP_ODDCDBPfactor_7yr
+
+Ppro_Parenthigh ~~ Mpro_Parenthigh
+Ppro_Parenthigh ~~ SNAP_ODDCDBPfactor_7yr
+
+Mpro_Parenthigh ~~ SNAP_ODDCDBPfactor_7yr
+
+mCauc ~~ 0*Npro
+mCauc ~~ 0*Ppro
+mCauc ~~ 0*Mpro
+mCauc ~~ Parenthigh
+mCauc ~~ Npro_Parenthigh
+mCauc ~~ Ppro_Parenthigh
+mCauc ~~ Mpro_Parenthigh
+mCauc ~~ 0*SNAP_ODDCDBPfactor_7yr
+
+fCauc ~~ 0*Npro
+fCauc ~~ 0*Ppro
+fCauc ~~ 0*Mpro
+fCauc ~~ Parenthigh
+fCauc ~~ Npro_Parenthigh
+fCauc ~~ Ppro_Parenthigh
+fCauc ~~ Mpro_Parenthigh
+fCauc ~~ 0*SNAP_ODDCDBPfactor_7yr
+
+mHS ~~ 0*Npro
+mHS ~~ 0*Ppro
+mHS ~~ 0*Mpro
+mHS ~~ Parenthigh
+mHS ~~ Npro_Parenthigh
+mHS ~~ Ppro_Parenthigh
+mHS ~~ Mpro_Parenthigh
+mHS ~~ 0*SNAP_ODDCDBPfactor_7yr
+
+mGrad ~~ 0*Npro
+mGrad ~~ 0*Ppro
+mGrad ~~ 0*Mpro
+mGrad ~~ Parenthigh
+mGrad ~~ Npro_Parenthigh
+mGrad ~~ Ppro_Parenthigh
+mGrad ~~ Mpro_Parenthigh
+mGrad ~~ 0*SNAP_ODDCDBPfactor_7yr
+
+mHS ~~ mGrad
+mHS ~~ mCauc
+mHS ~~ fCauc
+
+mGrad ~~ mCauc
+mGrad ~~ fCauc
+
+mCauc ~~ fCauc
+
+ADHD ~ fCauc + mCauc
+
+SNAPt_hypADHD_9yr ~~ SNAPt_inattADHD_9yr
+
+'
+
+
+Model3run<-sem(Model3, data=master,fixed.x=FALSE, missing = "FIML", estimator = "MLR",
+                  group = "gender_ks", group.equal = c("loadings")) 
+
+summary(Model3run, fit.measures=TRUE,standardized=TRUE, rsquare='TRUE') 
+
